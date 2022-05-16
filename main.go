@@ -29,14 +29,27 @@ func main() {
 		gfToken   = flag.String("grafana.token", "", "Grafana API token")
 		gitAPI    = flag.String("git.api", "", "Git service API URL")
 		gitToken  = flag.String("git.token", "", "Git service API token")
-		gitPID    = flag.Int("git.pid", 0, "Git project ID")
+		gitPID    = flag.Int("git.pid", -1, "Git project ID")
 		gitBranch = flag.String("git.branch", "main", "Git repository branch")
-		config    = flag.String("config", "config", "Config file (optional)")
+		config    = flag.String("config", "", "Config file (optional)")
 	)
 	flag.Parse()
 
 	if err := setFlagsFromFile(*config); err != nil {
 		log.Fatal(err)
+	}
+
+	switch {
+	case *gfAPI == "":
+		log.Fatal("error missing -grafana.api")
+	case *gfToken == "":
+		log.Fatal("error missing -token.api")
+	case *gitAPI == "":
+		log.Fatal("error missing -git.api")
+	case *gitToken == "":
+		log.Fatal("error missing -git.token")
+	case *gitPID == -1:
+		log.Fatal("error missing -git.pid")
 	}
 
 	gf, err := gapi.New(*gfAPI, gapi.Config{APIKey: *gfToken})
@@ -57,13 +70,13 @@ func main() {
 	for _, d := range dashboards {
 		b, err := gf.DashboardByUID(d.UID)
 		if err != nil {
-			log.Printf("error getting dashboard %q with ID %d", d.Title, d.ID)
+			log.Printf("error getting dashboard %q with ID %d: %v", d.Title, d.ID, err)
 			continue
 		}
 
 		data, err := json.MarshalIndent(b, "", "	")
 		if err != nil {
-			log.Printf("error converting to JSON of dashboard %q with ID %d", d.Title, d.ID)
+			log.Printf("error converting dashboard %q with ID %d: %v", d.Title, d.ID, err)
 			continue
 		}
 
@@ -266,6 +279,11 @@ func (g *Gitlab) Commit() error {
 }
 
 func setFlagsFromFile(filename string) error {
+	// no config file given so we assume parameters are passed using the flags.
+	if filename == "" {
+		return nil
+	}
+
 	c, err := os.Open(filename)
 	if err != nil {
 		return err
