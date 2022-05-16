@@ -1,0 +1,49 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - '*'
+  pull_request:
+    branches:
+      - '*'
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        go-version: [1.18]
+    runs-on: ubuntu-latest
+  
+    steps:
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: ${{ matrix.go-version }}
+      id: go
+
+    - uses: actions/checkout@v2
+
+    - name: Install misspell
+      run: go install github.com/client9/misspell/cmd/misspell@latest
+
+    - name: Install staticcheck
+      run: go install honnef.co/go/tools/cmd/staticcheck@latest
+    
+    - name: Print staticcheck version
+      run: staticcheck -version
+
+    - name: Run misspell
+      run: misspell cmd/**/*.{go,sh} internal/**/* README.md
+
+    - name: Check formatting
+      run: diff -u <(echo -n) <(gofmt -d -s .)
+
+    - name: Run go vet
+      run: go vet -all ./...
+
+    - name: Run go test
+      run: go test -v -race ./...
+
+    - name: Run staticcheck
+      run: staticcheck ./...
